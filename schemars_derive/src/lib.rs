@@ -52,6 +52,10 @@ fn derive_json_schema(
 
     if let Some(transparent_field) = cont.transparent_field() {
         let (ty, type_def) = schema_exprs::type_for_field_schema(transparent_field);
+        let mut json_schema = quote! {
+            <#ty as schemars::JsonSchema>::json_schema(gen)
+        };
+        cont.attrs.as_metadata().apply_to_schema(&mut json_schema);
         return Ok(quote! {
             const _: () = {
                 #crate_alias
@@ -72,7 +76,11 @@ fn derive_json_schema(
                     }
 
                     fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-                        <#ty as schemars::JsonSchema>::json_schema(gen)
+                        if Self::is_referenceable() {
+                            <#ty as schemars::JsonSchema>::json_schema(gen)
+                        } else {
+                            #json_schema
+                        }
                     }
 
                     fn _schemars_private_non_optional_json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
